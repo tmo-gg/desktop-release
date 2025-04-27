@@ -10,8 +10,8 @@ function GetUnitItems(unit)
 end
 
 Callbacks.Bind("Run", function()
-    if War3.WorldInitialized and War3.IsChatInputEnabled() then
-        if GetAsyncKeyState(33) ~= 0 then  -- VK_PRIOR(Page Up)
+    if War3.WorldInitialized then
+        if (GetAsyncKeyState(33) % 2 ~= 0) then  -- VK_PRIOR(Page Up)
             local unit = War3.GetSelectedUnit()
             if unit then
                 local items = GetUnitItems(unit)
@@ -21,9 +21,9 @@ Callbacks.Bind("Run", function()
                     message = message .. "\n" .. i .. ". " .. itemId
                 end
                 
-                War3.PostChat(message)
+                print(message)
             else
-                War3.PostChat("선택한 유닛이 없습니다.")
+                print("선택한 유닛이 없습니다.")
             end
         end
     end
