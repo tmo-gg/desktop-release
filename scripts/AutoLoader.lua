@@ -108,7 +108,6 @@ Callbacks.Bind("Run", function()
         if not loaded and War3.IsChatInputEnabled() then
             local playerId = War3.GetLocalPlayerId()
             local playerName = War3.GetPlayerName(playerId)
-            print(playerName)
             local saveCode = GetSaveCode(War3.GetDataDirectory()..'ORDR1', playerName)
             if saveCode ~= "" then
                 War3.PostChat(saveCode)
