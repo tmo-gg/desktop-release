@@ -45,8 +45,17 @@ function GetRealPlayerName(s)
         i = i - j
     end
     
-    return string.sub(s, j, j + i - 1)
-end
+    local name = string.sub(s, j, j + i - 1)
+
+    local startParen = string.find(name, "%(")
+    local endParen = string.find(name, "%)")
+    
+    if startParen and endParen and startParen < endParen then
+        return string.sub(name, startParen + 1, endParen - 1)
+    end
+    
+    return name
+end 
 
 function GetSaveCode(directory, name)
     local fName = GetRealPlayerName(name)
@@ -99,6 +108,7 @@ Callbacks.Bind("Run", function()
         if not loaded and War3.IsChatInputEnabled() then
             local playerId = War3.GetLocalPlayerId()
             local playerName = War3.GetPlayerName(playerId)
+            print(playerName)
             local saveCode = GetSaveCode(War3.GetDataDirectory()..'ORDR1', playerName)
             if saveCode ~= "" then
                 War3.PostChat(saveCode)
