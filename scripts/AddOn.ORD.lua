@@ -71,11 +71,24 @@ local inventoryItems = {
 }
 
 local inventoryItemsDetected = {
-  ["AI00"] = false,
-  ["AI01"] = false,
-  ["AI02"] = false,
-  ["AI03"] = false,
+  {
+    ["AI00"] = false,
+    ["AI01"] = false,
+    ["AI02"] = false,
+    ["AI03"] = false,
+  },
+  {
+    ["AI00"] = false,
+    ["AI01"] = false,
+    ["AI02"] = false,
+    ["AI03"] = false,
+  },
 }
+
+local inventoryScanPhase = 1
+
+-- 플레이어 번호를 처음 한 번만 읽어 반복 호출로 인한 연동 끊김 방지
+local cachedPlayerId = nil
 
 callbacks.bind("OnUnitBanEvaluate", function(handle, info)
   -- TMO의 유닛 검사 과정에서 오로성 기록
@@ -83,30 +96,39 @@ callbacks.bind("OnUnitBanEvaluate", function(handle, info)
     goroseiUnitsDetected[info.typeId] = true
   end
 
+  if cachedPlayerId == nil then
+    cachedPlayerId = war3.getLocalPlayer()
+  end
+
   -- 내 유닛이 가진 어빌리티 중 특정 어빌리티 기록
-  local playerId = war3.getLocalPlayer()
-  if info and info.owner == playerId then
-    local abilities = war3.getUnitAbility(handle)
+  if info and info.owner == cachedPlayerId then
+    -- 잘못된 핸들이 들어와도 오류로 멈추지 않고 해당 유닛만 건너뜀
+    local validHandle, abilities = pcall(war3.getUnitAbility, handle)
 
-    if abilities then
-      for _, abilityId in ipairs(abilities) do
-        local responseCode = trackedAbilities[abilityId]
+    if validHandle then
+      if abilities then
+        for _, abilityId in ipairs(abilities) do
+          local responseCode = trackedAbilities[abilityId]
 
-        if responseCode then
-          trackedAbilitiesDetected[responseCode] = true
+          if responseCode then
+            trackedAbilitiesDetected[responseCode] = true
+          end
         end
       end
-    end
 
-    -- 내 유닛 인벤토리의 특정 아이템 기록
-    if war3.getUnitHasInventory(handle) then
-      for slot = 0, 5 do
-        local itemId = war3.getUnitItem(handle, slot)
+      -- 내 유닛 인벤토리의 특정 아이템 기록
+      if war3.getUnitHasInventory(handle) then
+        -- 아이템 6칸을 3칸씩 번갈아 읽어 스크립트 시간 제한 초과 방지
+        local firstSlot = inventoryScanPhase == 1 and 0 or 3
+        local lastSlot = firstSlot + 2
 
-        local responseCode = itemId and inventoryItems[itemId]
+        for slot = firstSlot, lastSlot do
+          local itemId = war3.getUnitItem(handle, slot)
+          local responseCode = itemId and inventoryItems[itemId]
 
-        if responseCode then
-          inventoryItemsDetected[responseCode] = true
+          if responseCode then
+            inventoryItemsDetected[inventoryScanPhase][responseCode] = true
+          end
         end
       end
     end
@@ -136,7 +158,8 @@ callbacks.bind("OnResponse", function()
   for _, value in ipairs(items) do
     local detected = war3.getPlayerAbilityAvailable(playerId, value:reverse())
 
-    if inventoryItemsDetected[value] then
+    -- 앞 3칸과 뒤 3칸의 결과를 합쳐 6칸 전체 보유 상태를 유지
+    if inventoryItemsDetected[1][value] or inventoryItemsDetected[2][value] then
       detected = true
     end
 
@@ -155,8 +178,10 @@ callbacks.bind("OnResponse", function()
     trackedAbilitiesDetected[abilityId] = false
   end
 
-  -- 특정 아이템 상태 초기화
-  for abilityId in pairs(inventoryItemsDetected) do
-    inventoryItemsDetected[abilityId] = false
+  -- 다음 주기에는 반대쪽 3칸만 새로 확인하도록 전환
+  inventoryScanPhase = inventoryScanPhase == 1 and 2 or 1
+
+  for abilityId in pairs(inventoryItemsDetected[inventoryScanPhase]) do
+    inventoryItemsDetected[inventoryScanPhase][abilityId] = false
   end
 end)
